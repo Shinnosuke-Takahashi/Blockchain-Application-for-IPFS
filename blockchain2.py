@@ -1,8 +1,5 @@
 """
     NOTES:
-    
-    consensus is  BROKEN!!! PLEASE FIX!!!!!!!!!!!
-    
     installing requests:
     python3 -m pip install requests
     
@@ -31,7 +28,7 @@ from flask import Flask, jsonify, request
 class Blockchain:
     #constructor
     def __init__(self, id):
-        #this is the book ID
+        #this is the file ID
         self.id = id
         
         self.current_transactions = []
@@ -98,12 +95,11 @@ class Blockchain:
         
         for node in neighbors:
             URL = f'http://{node}/chain'
-            PARAMS = {'bookID' : self.id}
-            response = requests.get(url = URL, params = PARAMS)
-        
+            response = requests.get(url = URL)  
+                    
             if response.status_code == 200:
-                length = response.json()['length']
-                chain = response.json()['chain']
+                length = response.json()[f'{self.id} LENGTH']
+                chain = response.json()[f'{self.id} CHAIN']
                 
                 if length > max_length and self.valid_chain(chain):
                     max_length = length
@@ -217,28 +213,28 @@ app = Flask(__name__)
 node_id = str(uuid4()).replace('-','')
 
 #instantiate first blockchain
-blockchain = { 'book1' : Blockchain('book1') }
+blockchain = { 'genesis' : Blockchain('genesis') }
 
 #################################################
 #################################################
 ## DEFINING BACKEND BELOW
 #################################################
 #################################################
-@app.route('/newbook', methods = ['POST'])
+@app.route('/newfile', methods = ['POST'])
 def newBlockchain():
-    #new blockchain for new books
+    #new blockchain for new files
     values = request.get_json()
-    required = ['bookID']
+    required = ['fileID']
     if not all (k in values for k in required):
-        return 'Missing values: bookID', 400
+        return 'Missing values: fileID', 400
     
-    #new blockchain for new book
-    blockchain[values['bookID']] = Blockchain(values['bookID'])
+    #new blockchain for new file
+    blockchain[values['fileID']] = Blockchain(values['fileID'])
     
-    currentBlockchain = blockchain[values['bookID']]
+    currentBlockchain = blockchain[values['fileID']]
     
     response = {
-        'bookID': currentBlockchain.id,
+        'fileID': currentBlockchain.id,
         'message': 'new Blockchain created'
         }
     return jsonify(response), 201
@@ -247,11 +243,11 @@ def newBlockchain():
 def mine():
     
     values = request.get_json()
-    required = ['bookID']
+    required = ['fileID']
     if not all (k in values for k in required):
-        return 'Missing values: bookID', 400
+        return 'Missing values: fileID', 400
     
-    currentBlockchain = blockchain[values['bookID']]
+    currentBlockchain = blockchain[values['fileID']]
     
     #run the PoW algo to get next proof
     last_block = currentBlockchain.last_block
@@ -261,7 +257,7 @@ def mine():
     currentBlockchain.new_transaction(
         sender = '0',
         recipient = node_id,
-        #bookID = "0",
+        #fileID = "0",
     )
     
     #Add new block to chain
@@ -269,7 +265,7 @@ def mine():
     block = currentBlockchain.new_block(proof, previous_hash)
     
     response = {
-        'bookID': currentBlockchain.id,
+        'fileID': currentBlockchain.id,
         'message': "New Block Forged",
         'index': block['index'],
         'transactions': block['transactions'],
@@ -283,43 +279,40 @@ def new_transaction():
     values = request.get_json()
     
     #Checks that the required fields are in the POST data
-    required = ['sender', 'recipient', 'bookID']
+    required = ['sender', 'recipient', 'fileID']
     if not all (k in values for k in required):
         return 'Missing values', 400
-    currentBlockchain = blockchain[values['bookID']]
+    currentBlockchain = blockchain[values['fileID']]
     
     #Create new transaction
     index = currentBlockchain.new_transaction(values['sender'], values['recipient'])
     
     response = {
-        'bookID': currentBlockchain.id,
+        'fileID': currentBlockchain.id,
         'message': f'Transaction will be added to Block {index}',
         }
     return jsonify(response), 201
 
 @app.route('/chain', methods=['GET'])
 def full_chain():
-    values = request.get_json()
-    required = ['bookID']
-    if not all (k in values for k in required):
-        return 'Missing values: bookID', 400
-    
-    currentBlockchain = blockchain[values['bookID']]
-    response = {
-        'bookID': currentBlockchain.id,
-        'chain': currentBlockchain.chain,
-        'length': len(currentBlockchain.chain),
-    }
+    response = {}
+    _blocks = 0
+    for chain in blockchain:
+        response[f"{blockchain[chain].id} CHAIN"] = blockchain[chain].chain
+        response[f"{blockchain[chain].id} LENGTH"] = len(blockchain[chain].chain)
+        _blocks += len(blockchain[chain].chain)
+    response[f"Total number of files"] = len(blockchain)
+    response[f"Total number of Blocks"] = _blocks
     return jsonify(response), 200
 
 @app.route('/nodes/register', methods=['POST'])
 def register_nodes():
     values = request.get_json()
-    required = ['bookID']
+    required = ['fileID']
     if not all (k in values for k in required):
-        return 'Missing values: bookID', 400
+        return 'Missing values: fileID', 400
     
-    currentBlockchain = blockchain[values['bookID']]
+    currentBlockchain = blockchain[values['fileID']]
 
     nodes = values.get('nodes')
     if nodes is None:
@@ -329,7 +322,7 @@ def register_nodes():
         currentBlockchain.register_node(node)
         
     response = {
-        'bookID': currentBlockchain.id,
+        'fileID': currentBlockchain.id,
         'message': 'New nodes added',
         'total_nodes': list(currentBlockchain.nodes),
     }
@@ -340,13 +333,13 @@ def get_neighbors():
     """Returns list of all nodes
     """
     values = request.get_json()
-    required = ['bookID']
+    required = ['fileID']
     if not all (k in values for k in required):
-        return 'Missing values: bookID', 400
+        return 'Missing values: fileID', 400
     
-    currentBlockchain = blockchain[values['bookID']]
+    currentBlockchain = blockchain[values['fileID']]
     response = {
-        'bookID': currentBlockchain.id,
+        'fileID': currentBlockchain.id,
         'total_nodes': list(currentBlockchain.nodes)
     }
     return jsonify(response), 200
@@ -355,22 +348,22 @@ def get_neighbors():
 @app.route('/nodes/resolve', methods = ['POST'])
 def consensus():
     values = request.get_json()
-    required = ['bookID']
+    required = ['fileID']
     if not all (k in values for k in required):
-        return 'Missing values: bookID', 400
+        return 'Missing values: fileID', 400
     
-    currentBlockchain = blockchain[values['bookID']]
+    currentBlockchain = blockchain[values['fileID']]
     replaced = currentBlockchain.resolve_conflicts()
     
     if replaced:
         response = {
-            'bookID': currentBlockchain.id,
+            'fileID': currentBlockchain.id,
             'message': 'Chain has been replaced',
             'new_chain': currentBlockchain.chain
         }
     else:
         response = {
-            'bookID': currentBlockchain.id,
+            'fileID': currentBlockchain.id,
             'message': 'Chain has not been replaced; it is authoritative',
             'chain': currentBlockchain.chain
         }
