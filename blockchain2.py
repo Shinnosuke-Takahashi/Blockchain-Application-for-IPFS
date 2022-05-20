@@ -22,13 +22,11 @@ class Blockchain: #ie. file
     def __init__(self, id):
         #this is the file ID
         self.id = id
-        
         self.current_transactions = []
-        
         self.chain = []
         self.nodes = set()
         
-        #genesis
+        #genesis block
         self.new_block(previous_hash = 'genesis', proof = 100)
     
     def register_node(self, address):
@@ -49,14 +47,13 @@ class Blockchain: #ie. file
             raise ValueError('URL invalid')
     
     def valid_chain(self, chain):
-        """determines if a blockchain is valid
+        """determines if a blockchain is valid by checking hashes
 
         Args:
             chain: blockchain
         
         Returns: bool; true if valid
         """
-        
         last_block = chain[0]
         current_index = 1
         
@@ -79,7 +76,6 @@ class Blockchain: #ie. file
         
         return: True if chain was replaced, False if not
         """
-        
         neighbors = self.nodes
         new_chain = None
         
@@ -114,7 +110,6 @@ class Blockchain: #ie. file
         Return:
             new block
         """
-        
         block = {
             'index': len(self.chain) + 1,
             'timestamp': time(),
@@ -130,7 +125,6 @@ class Blockchain: #ie. file
         return block
     
     def new_transaction(self, author, blockname):
-         
         """Creates new transaction to go into next mined Block
 
         Args:
@@ -165,7 +159,6 @@ class Blockchain: #ie. file
         
         block: Block
         """
-        
         #ordering the dictionary as to create reliable standard for hash generation
         block_string = json.dumps(block, sort_keys=True).encode()
         return hashlib.sha256(block_string).hexdigest()
@@ -178,7 +171,6 @@ class Blockchain: #ie. file
             
         Return (int): Proof of Work
         """
-        
         last_proof = last_block['proof']
         last_hash = self.hash(last_block)
         
@@ -200,7 +192,6 @@ class Blockchain: #ie. file
             
         Returns: True if correct
         """
-        
         guess = f'{last_proof}{proof}{last_hash}'.encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
         
@@ -232,7 +223,7 @@ def newBlockchain():
     if values['fileID'] in blockchain:
         return f'{values["fileID"]} already exists!', 400
     
-    #new blockchain for new file    
+    #new blockchain for new file created  
     blockchain[values['fileID']] = Blockchain(values['fileID'])
     
     currentBlockchain = blockchain[values['fileID']]
@@ -245,7 +236,7 @@ def newBlockchain():
 
 @app.route('/mine', methods = ['POST'])
 def mine():
-    
+    #mines new block
     values = request.get_json()
     required = ['fileID']
     if not all (k in values for k in required):
@@ -273,6 +264,7 @@ def mine():
 
 @app.route('/transactions/new', methods=['POST'])
 def new_transaction():
+    #adds new transaction
     values = request.get_json()
     
     #Checks that the required fields are in the POST data
@@ -292,6 +284,7 @@ def new_transaction():
 
 @app.route('/chain', methods=['GET'])
 def full_chain():
+    #gets chain
     response = {}
     _blocks = 0
     for chain in blockchain:
@@ -304,6 +297,7 @@ def full_chain():
 
 @app.route('/nodes/register', methods=['POST'])
 def register_nodes():
+    #adds new node addresses to whitelist
     values = request.get_json()
     required = ['fileID']
     if not all (k in values for k in required):
@@ -327,8 +321,7 @@ def register_nodes():
 
 @app.route('/nodes/list', methods = ['GET'])
 def get_neighbors():
-    """Returns list of all nodes
-    """
+    #Returns list of all nodes
     values = request.get_json()
     required = ['fileID']
     if not all (k in values for k in required):
@@ -344,6 +337,7 @@ def get_neighbors():
 
 @app.route('/nodes/resolve', methods = ['POST'])
 def consensus():
+    #calls on consensus algorithm
     values = request.get_json()
     required = ['fileID']
     if not all (k in values for k in required):
