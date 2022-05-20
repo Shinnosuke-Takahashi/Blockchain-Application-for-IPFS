@@ -1,16 +1,8 @@
 """
-    NOTES:
-    installing requests:
-    python3 -m pip install requests
-    
-    @: decorator
-        @check 
-        def func(a,b)
-        
-        is the same thing as
-        def func(a,b)
-        func = check(func)
-        
+Author: Shinnosuke Takahashi
+CUNY Hunter College, Spring 2022
+
+This program serves as the application layer for an InterPlanetary File System.
 """
 
 import hashlib
@@ -25,18 +17,19 @@ from collections.abc import Mapping
 import requests
 from flask import Flask, jsonify, request
 
-class Blockchain:
+class Blockchain: #ie. file
     #constructor
     def __init__(self, id):
         #this is the file ID
         self.id = id
         
         self.current_transactions = []
+        
         self.chain = []
         self.nodes = set()
         
         #genesis
-        self.new_block(previous_hash = '1', proof = 100)
+        self.new_block(previous_hash = 'genesis', proof = 100)
     
     def register_node(self, address):
         """adds new Node to the list
@@ -69,7 +62,7 @@ class Blockchain:
         
         while current_index < len (chain):
             block = chain[current_index]
-            print(f'{last_block}')
+            print('{last_block}')
             print(f'{block}')
             print("\n-----------\n")
             #checking if hash of block is correct
@@ -136,20 +129,28 @@ class Blockchain:
         self.chain.append(block)
         return block
     
-    def new_transaction(self, sender, recipient):
+    def new_transaction(self, author, blockname):
          
         """Creates new transaction to go into next mined Block
 
         Args:
-            sender: address of sender
-            recipient: address of recipient
+            author: address of author
+            blockname: name of file chunk
             
         Return: Index of block that will hold this transaction
         """
+        filehash = '0'
+        if blockname != '0':
+            #rb is for Reading as Binary
+            with open(blockname, "rb") as f:
+                prehash = f.read()
+                filehash = hashlib.sha256(prehash).hexdigest()
         
         self.current_transactions.append({
-            'sender': sender,
-            'recipient': recipient,
+            'author': author,
+            'block name': blockname,
+            'file hash': filehash,
+            'timestamp': time(),
         })
         
         return self.last_block['index'] + 1
@@ -165,7 +166,7 @@ class Blockchain:
         block: Block
         """
         
-        #ordering the dictionary
+        #ordering the dictionary as to create reliable standard for hash generation
         block_string = json.dumps(block, sort_keys=True).encode()
         return hashlib.sha256(block_string).hexdigest()
     
@@ -212,8 +213,8 @@ app = Flask(__name__)
 #generate unique address for node; removes all '-'
 node_id = str(uuid4()).replace('-','')
 
-#instantiate first blockchain
-blockchain = { 'genesis' : Blockchain('genesis') }
+#instantiate blockchain dictionary
+blockchain = {}
 
 #################################################
 #################################################
@@ -228,7 +229,10 @@ def newBlockchain():
     if not all (k in values for k in required):
         return 'Missing values: fileID', 400
     
-    #new blockchain for new file
+    if values['fileID'] in blockchain:
+        return f'{values["fileID"]} already exists!', 400
+    
+    #new blockchain for new file    
     blockchain[values['fileID']] = Blockchain(values['fileID'])
     
     currentBlockchain = blockchain[values['fileID']]
@@ -253,13 +257,6 @@ def mine():
     last_block = currentBlockchain.last_block
     proof = currentBlockchain.proof_of_work(last_block)
 
-    #sender is '0' to signify that this block is generated with no transactions yet
-    currentBlockchain.new_transaction(
-        sender = '0',
-        recipient = node_id,
-        #fileID = "0",
-    )
-    
     #Add new block to chain
     previous_hash = currentBlockchain.hash(last_block)
     block = currentBlockchain.new_block(proof, previous_hash)
@@ -279,13 +276,13 @@ def new_transaction():
     values = request.get_json()
     
     #Checks that the required fields are in the POST data
-    required = ['sender', 'recipient', 'fileID']
+    required = ['author', 'block name', 'fileID']
     if not all (k in values for k in required):
         return 'Missing values', 400
     currentBlockchain = blockchain[values['fileID']]
     
     #Create new transaction
-    index = currentBlockchain.new_transaction(values['sender'], values['recipient'])
+    index = currentBlockchain.new_transaction(values['author'], values['block name'])
     
     response = {
         'fileID': currentBlockchain.id,
