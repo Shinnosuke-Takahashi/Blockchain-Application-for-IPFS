@@ -1,17 +1,8 @@
 """
-    NOTES:
-    DO NOT GET PYTHON 3.10
-    installing requests:
-    python3 -m pip install requests
-    
-    @: decorator
-        @check 
-        def func(a,b)
-        
-        is the same thing as
-        def func(a,b)
-        func = check(func)
-        
+Author: Shinnosuke Takahashi
+CUNY Hunter College, Spring 2022
+
+This program serves as the application layer for an InterPlanetary File System.
 """
 
 import hashlib
@@ -26,15 +17,19 @@ from collections.abc import Mapping
 import requests
 from flask import Flask, jsonify, request
 
-class Blockchain:
+class Blockchain: #ie. file
     #constructor
-    def __init__(self):
+    def __init__(self, id):
+        #this is the file ID
+        self.id = id
+        
         self.current_transactions = []
+        
         self.chain = []
         self.nodes = set()
         
         #genesis
-        self.new_block(previous_hash = '1', proof = 100)
+        self.new_block(previous_hash = 'genesis', proof = 100)
     
     def register_node(self, address):
         """adds new Node to the list
@@ -67,7 +62,7 @@ class Blockchain:
         
         while current_index < len (chain):
             block = chain[current_index]
-            print(f'{last_block}')
+            print('{last_block}')
             print(f'{block}')
             print("\n-----------\n")
             #checking if hash of block is correct
@@ -92,11 +87,12 @@ class Blockchain:
         max_length = len(self.chain)
         
         for node in neighbors:
-            response = requests.get(f'http://{node}/chain')
-            
+            URL = f'http://{node}/chain'
+            response = requests.get(url = URL)  
+                    
             if response.status_code == 200:
-                length = response.json()['length']
-                chain = response.json()['chain']
+                length = response.json()[f'{self.id} LENGTH']
+                chain = response.json()[f'{self.id} CHAIN']
                 
                 if length > max_length and self.valid_chain(chain):
                     max_length = length
@@ -133,21 +129,28 @@ class Blockchain:
         self.chain.append(block)
         return block
     
-    def new_transaction(self, sender, recipient, bookID):
+    def new_transaction(self, author, blockname):
+         
         """Creates new transaction to go into next mined Block
 
         Args:
-            sender: address of sender
-            recipient: address of recipient
-            bookID: bookID
+            author: address of author
+            blockname: name of file chunk
             
         Return: Index of block that will hold this transaction
         """
+        filehash = '0'
+        if blockname != '0':
+            #rb is for Reading as Binary
+            with open(blockname, "rb") as f:
+                prehash = f.read()
+                filehash = hashlib.sha256(prehash).hexdigest()
         
         self.current_transactions.append({
-            'sender': sender,
-            'recipient': recipient,
-            'bookID': bookID,
+            'author': author,
+            'block name': blockname,
+            'file hash': filehash,
+            'timestamp': time(),
         })
         
         return self.last_block['index'] + 1
@@ -163,7 +166,7 @@ class Blockchain:
         block: Block
         """
         
-        #ordering the dictionary
+        #ordering the dictionary as to create reliable standard for hash generation
         block_string = json.dumps(block, sort_keys=True).encode()
         return hashlib.sha256(block_string).hexdigest()
     
@@ -210,29 +213,56 @@ app = Flask(__name__)
 #generate unique address for node; removes all '-'
 node_id = str(uuid4()).replace('-','')
 
-#instantiate blockchain
-blockchain = Blockchain()
+#instantiate blockchain dictionary
+blockchain = {}
 
-
+#################################################
+#################################################
 ## DEFINING BACKEND BELOW
-@app.route('/mine', methods = ['GET'])
-def mine():
-    #run the PoW algo to get next proof
-    last_block = blockchain.last_block
-    proof = blockchain.proof_of_work(last_block)
-
-    #sender is '0' to signify that this block is generated with no transactions yet
-    blockchain.new_transaction(
-        sender = '0',
-        recipient = node_id,
-        bookID = "0",
-    )
+#################################################
+#################################################
+@app.route('/newfile', methods = ['POST'])
+def newBlockchain():
+    #new blockchain for new files
+    values = request.get_json()
+    required = ['fileID']
+    if not all (k in values for k in required):
+        return 'Missing values: fileID', 400
     
-    #Add new block to chain
-    previous_hash = blockchain.hash(last_block)
-    block = blockchain.new_block(proof, previous_hash)
+    if values['fileID'] in blockchain:
+        return f'{values["fileID"]} already exists!', 400
+    
+    #new blockchain for new file    
+    blockchain[values['fileID']] = Blockchain(values['fileID'])
+    
+    currentBlockchain = blockchain[values['fileID']]
     
     response = {
+        'fileID': currentBlockchain.id,
+        'message': 'new Blockchain created'
+        }
+    return jsonify(response), 201
+
+@app.route('/mine', methods = ['POST'])
+def mine():
+    
+    values = request.get_json()
+    required = ['fileID']
+    if not all (k in values for k in required):
+        return 'Missing values: fileID', 400
+    
+    currentBlockchain = blockchain[values['fileID']]
+    
+    #run the PoW algo to get next proof
+    last_block = currentBlockchain.last_block
+    proof = currentBlockchain.proof_of_work(last_block)
+
+    #Add new block to chain
+    previous_hash = currentBlockchain.hash(last_block)
+    block = currentBlockchain.new_block(proof, previous_hash)
+    
+    response = {
+        'fileID': currentBlockchain.id,
         'message': "New Block Forged",
         'index': block['index'],
         'transactions': block['transactions'],
@@ -246,38 +276,52 @@ def new_transaction():
     values = request.get_json()
     
     #Checks that the required fields are in the POST data
-    required = ['sender', 'recipient', 'bookID']
+    required = ['author', 'block name', 'fileID']
     if not all (k in values for k in required):
         return 'Missing values', 400
+    currentBlockchain = blockchain[values['fileID']]
     
     #Create new transaction
-    index = blockchain.new_transaction(values['sender'], values['recipient'], values['bookID'])
+    index = currentBlockchain.new_transaction(values['author'], values['block name'])
     
-    response = {'message': f'Transaction will be added to Block {index}'}
+    response = {
+        'fileID': currentBlockchain.id,
+        'message': f'Transaction will be added to Block {index}',
+        }
     return jsonify(response), 201
 
 @app.route('/chain', methods=['GET'])
 def full_chain():
-    response = {
-        'chain': blockchain.chain,
-        'length': len(blockchain.chain),
-    }
+    response = {}
+    _blocks = 0
+    for chain in blockchain:
+        response[f"{blockchain[chain].id} CHAIN"] = blockchain[chain].chain
+        response[f"{blockchain[chain].id} LENGTH"] = len(blockchain[chain].chain)
+        _blocks += len(blockchain[chain].chain)
+    response[f"Total number of files"] = len(blockchain)
+    response[f"Total number of Blocks"] = _blocks
     return jsonify(response), 200
 
 @app.route('/nodes/register', methods=['POST'])
 def register_nodes():
     values = request.get_json()
+    required = ['fileID']
+    if not all (k in values for k in required):
+        return 'Missing values: fileID', 400
     
+    currentBlockchain = blockchain[values['fileID']]
+
     nodes = values.get('nodes')
     if nodes is None:
         return "Error: node list invalid or empty", 400
     
     for node in nodes:
-        blockchain.register_node(node)
+        currentBlockchain.register_node(node)
         
     response = {
+        'fileID': currentBlockchain.id,
         'message': 'New nodes added',
-        'total_nodes': list(blockchain.nodes),
+        'total_nodes': list(currentBlockchain.nodes),
     }
     return jsonify(response), 201
 
@@ -285,25 +329,40 @@ def register_nodes():
 def get_neighbors():
     """Returns list of all nodes
     """
+    values = request.get_json()
+    required = ['fileID']
+    if not all (k in values for k in required):
+        return 'Missing values: fileID', 400
+    
+    currentBlockchain = blockchain[values['fileID']]
     response = {
-        'total_nodes': list(blockchain.nodes)
+        'fileID': currentBlockchain.id,
+        'total_nodes': list(currentBlockchain.nodes)
     }
     return jsonify(response), 200
         
 
-@app.route('/nodes/resolve', methods = ['GET'])
+@app.route('/nodes/resolve', methods = ['POST'])
 def consensus():
-    replaced = blockchain.resolve_conflicts()
+    values = request.get_json()
+    required = ['fileID']
+    if not all (k in values for k in required):
+        return 'Missing values: fileID', 400
+    
+    currentBlockchain = blockchain[values['fileID']]
+    replaced = currentBlockchain.resolve_conflicts()
     
     if replaced:
         response = {
+            'fileID': currentBlockchain.id,
             'message': 'Chain has been replaced',
-            'new_chain': blockchain.chain
+            'new_chain': currentBlockchain.chain
         }
     else:
         response = {
+            'fileID': currentBlockchain.id,
             'message': 'Chain has not been replaced; it is authoritative',
-            'chain': blockchain.chain
+            'chain': currentBlockchain.chain
         }
         
     return jsonify(response), 200    
