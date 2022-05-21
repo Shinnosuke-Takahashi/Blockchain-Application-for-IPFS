@@ -59,9 +59,6 @@ class Blockchain: #ie. file
         
         while current_index < len (chain):
             block = chain[current_index]
-            print('{last_block}')
-            print(f'{block}')
-            print("\n-----------\n")
             #checking if hash of block is correct
             last_block_hash = self.hash(last_block)
             if not self.valid_proof(last_block['proof'], block['proof'], last_block_hash):
@@ -195,7 +192,7 @@ class Blockchain: #ie. file
         guess = f'{last_proof}{proof}{last_hash}'.encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
         
-        #DIFFICULTY SETTING HERE
+        #DIFFICULTY SETTING HERE; checking if first 4 characters of our guess hash are '0000'
         return guess_hash[:4] == "0000"
     
 #instantiate node
@@ -230,7 +227,7 @@ def newBlockchain():
     
     response = {
         'fileID': currentBlockchain.id,
-        'message': 'new Blockchain created'
+        'message': 'new local Blockchain created'
         }
     return jsonify(response), 201
 
