@@ -81,5 +81,5 @@ A file "file#x.txt" represents a chunk of a hypothetical file "file#.txt".
   requires:
     "fileID" : string of file name
 
-**'chain'** : returns all chains
+**'/chain'** : returns all chains
   type: GET
