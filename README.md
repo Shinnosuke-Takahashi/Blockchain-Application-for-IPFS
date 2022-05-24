@@ -21,7 +21,8 @@ The consensus algorithm of this IPFS relies on the length of the chain. A node w
 
 ### What still needs to be addressed:
 
-While this blockchain system is functional, there are some tweaks that must still be made in order to strengthen security:
+While this blockchain system is functional, there are some tweaks that must still be made in order to strengthen security and flexibility:
+ - Must implement an additional layer of hashing on file names to allow files with the same name but altering contents to coexist on the IPFS. Hashes would replace file names in the dictionary, but work in tandem when looking up files on the system. These hashes would be based on factors such as: file contents, file name, date uploaded to the IPFS, and randomly generated integer “nonce” values for increased uniqueness.
   - Because consensus is length-based, a bad actor could ruin the chain by locally creating a long ‘false’ chain that shares a name with a chain that already exists. If the bad actor builds a chain of compromised file chunks that is longer than the global chain, the chain could still be considered valid and therefore replace the global chain. There are two known methods to solve this issue:
     - When attempting to add a new file, a node could be forced to search the dictionary of blockchains (the IPFS) for a global chain associated with the ID of the file. If found, the node can be forced to replace its own chain with the global chain. Because chains cannot be deleted or destroyed, it would be impossible to create a new (and potentially malevolent) chain from scratch.
     - The inclusion of an ‘end’ block to each chain, making a local chain irreplaceable if included, could prevent unauthorized lengthening of a chain. If a local chain cannot be replaced (ie. edited), then it cannot attempt to alter the global chain.
