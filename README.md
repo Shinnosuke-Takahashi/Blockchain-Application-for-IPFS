@@ -54,6 +54,7 @@ A file "file#x.txt" represents a chunk of a hypothetical file "file#.txt".
  requires:
     "fileID" : string of file name
   
+  
 **'/nodes/register'** : adds new node addresses to whitelist
   
   type: POST
@@ -62,12 +63,14 @@ A file "file#x.txt" represents a chunk of a hypothetical file "file#.txt".
     "fileID" : string of file name,
     "nodes": list of strings with node addresses
  
+ 
 **'/nodes/list'** : returns list of nodes on whitelist
   
   type: GET
   
   requires:
     "fileID" : string of file name
+    
     
 **'/transactions/new'** : adds new transaction
   
@@ -78,6 +81,7 @@ A file "file#x.txt" represents a chunk of a hypothetical file "file#.txt".
     "author" : string of your public address,
     "block name" : string of file chunk name
 
+
 **'/mine'** : adds new block
   
   type: POST
@@ -86,12 +90,14 @@ A file "file#x.txt" represents a chunk of a hypothetical file "file#.txt".
     "fileID" : string of file name,
     "author" : string of your public address
 
+
 **'/nodes/resolve'** : calls consensus algorithm
  
  type: POST
  
  requires:
     "fileID" : string of file name
+
 
 **'/chain'** : returns all chains
  
