@@ -1,4 +1,4 @@
-# Capstone_Blockchain: Emulation of the Application Layer for an InterPlanetary File System
+# Blockchain-Application-for-IPFS: Emulation of the Application Layer for an InterPlanetary File System
 Blockchain project for Capstone course at CUNY Hunter College, Spring 2022 by **Shinnosuke Takahashi**
 
 ## Overview:
